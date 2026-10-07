@@ -345,3 +345,15 @@ describe('1.16.5 anvil', () => {
     })
   })
 })
+
+describe('anvil without a second item', () => {
+  for (const version of ['1.8.8', '1.20.5']) {
+    const Item = require('prismarine-item')(version)
+    const registry = require('prismarine-registry')(version)
+    it(`makes nothing without a new name, a renamed item with one (${version})`, () => {
+      const sword = new Item(registry.itemsByName.iron_sword.id, 1)
+      expect(Item.anvil(sword, null, false, undefined)).toStrictEqual({ xpCost: 0, item: null })
+      expect(Item.anvil(sword, null, false, 'Blade').item?.name).toBe('iron_sword')
+    })
+  }
+})
