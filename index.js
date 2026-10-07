@@ -331,7 +331,7 @@ function loader (registryOrVersion) {
       if (this.componentMap) {
         const key = useStoredEnchants ? 'stored_enchantments' : 'enchantments'
         const levels = normalizedEnchArray.map(({ name, lvl }) => ({ id: registry.enchantmentsByName[name].id, level: lvl }))
-        const data = this.componentMap.get(key)?.data ?? (registry.version['<']('1.21.5') ? { showInTooltip: true } : {})
+        const data = this.componentMap.get(key)?.data ?? (registry.version['<']('1.21.5') ? { showTooltip: true } : {})
         this._setComponent(key, levels.length ? { ...data, enchantments: levels } : null)
         return
       }

@@ -633,7 +633,7 @@ describe('componentMap getters (1.20.5+)', () => {
       sword.enchants = [{ name: 'sharpness', lvl: 2 }]
       sword.repairCost = 1
       expect(Item.toNotch(sword).components).toStrictEqual([
-        { type: 'enchantments', data: { showInTooltip: true, enchantments: [{ id: registry.enchantmentsByName.sharpness.id, level: 2 }] } },
+        { type: 'enchantments', data: { showTooltip: true, enchantments: [{ id: registry.enchantmentsByName.sharpness.id, level: 2 }] } },
         { type: 'repair_cost', data: 1 }
       ])
       expect(Item.fromNotch(Item.toNotch(sword)).enchants).toStrictEqual([{ name: 'sharpness', lvl: 2 }])
