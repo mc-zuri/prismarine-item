@@ -618,6 +618,29 @@ describe('componentMap getters (1.20.5+)', () => {
       expect(item.enchants).toStrictEqual(enchData)
     })
 
+    it('reads the levels the protocol gives (ids), and a book from its stored_enchantments', () => {
+      const registry = require('prismarine-registry')('1.20.5')
+      const sharpness = registry.enchantmentsByName.sharpness.id
+      const sword = Item.fromNotch({ itemId: registry.itemsByName.iron_sword.id, itemCount: 1, components: [{ type: 'enchantments', data: { enchantments: [{ id: sharpness, level: 5 }], showInTooltip: true } }] })
+      expect(sword.enchants).toStrictEqual([{ name: 'sharpness', lvl: 5 }])
+      const book = Item.fromNotch({ itemId: registry.itemsByName.enchanted_book.id, itemCount: 1, components: [{ type: 'stored_enchantments', data: { enchantments: [{ id: sharpness, level: 1 }], showInTooltip: true } }] })
+      expect(book.enchants).toStrictEqual([{ name: 'sharpness', lvl: 1 }])
+    })
+
+    it('sets them in the component toNotch writes, keeping its other fields', () => {
+      const registry = require('prismarine-registry')('1.20.5')
+      const sword = Item.fromNotch({ itemId: registry.itemsByName.iron_sword.id, itemCount: 1, components: [], removeComponents: [] })
+      sword.enchants = [{ name: 'sharpness', lvl: 2 }]
+      sword.repairCost = 1
+      expect(Item.toNotch(sword).components).toStrictEqual([
+        { type: 'enchantments', data: { showInTooltip: true, enchantments: [{ id: registry.enchantmentsByName.sharpness.id, level: 2 }] } },
+        { type: 'repair_cost', data: 1 }
+      ])
+      expect(Item.fromNotch(Item.toNotch(sword)).enchants).toStrictEqual([{ name: 'sharpness', lvl: 2 }])
+      sword.enchants = []
+      expect(Item.toNotch(sword).components).toStrictEqual([{ type: 'repair_cost', data: 1 }])
+    })
+
     it('returns empty array when componentMap has no enchantments and no nbt', () => {
       const item = Item.fromNotch({
         itemId: 830,

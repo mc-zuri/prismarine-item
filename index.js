@@ -204,6 +204,18 @@ function loader (registryOrVersion) {
       throw new Error("Don't know how to deserialize for this mc version")
     }
 
+    // 1.20.5+: a component set (or removed, with null) both where the getters look and where toNotch writes from
+    _setComponent (type, data) {
+      this.components = (this.components ?? []).filter(component => component.type !== type)
+      if (data === null || data === undefined) {
+        this.componentMap.delete(type)
+        return
+      }
+      const component = { type, data }
+      this.components.push(component)
+      this.componentMap.set(type, component)
+    }
+
     get customName () {
       if (this.componentMap?.has('custom_name')) {
         return chatComponentJson(this.componentMap.get('custom_name').data)
@@ -213,7 +225,7 @@ function loader (registryOrVersion) {
 
     set customName (newName) {
       if (this.componentMap) {
-        this.componentMap.set('custom_name', { type: 'custom_name', data: newName })
+        this._setComponent('custom_name', newName)
         return
       }
       if (!this.nbt) this.nbt = nbt.comp({})
@@ -232,7 +244,7 @@ function loader (registryOrVersion) {
 
     set customLore (newLore) {
       if (this.componentMap) {
-        this.componentMap.set('lore', { type: 'lore', data: newLore })
+        this._setComponent('lore', newLore)
         return
       }
       if (!this.nbt) this.nbt = nbt.comp({})
@@ -253,7 +265,7 @@ function loader (registryOrVersion) {
 
     set repairCost (newRepairCost) {
       if (this.componentMap) {
-        this.componentMap.set('repair_cost', { type: 'repair_cost', data: newRepairCost })
+        this._setComponent('repair_cost', newRepairCost)
         return
       }
       if (!this?.nbt) this.nbt = nbt.comp({})
@@ -273,8 +285,11 @@ function loader (registryOrVersion) {
       const typeOfEnchantLevelValue = registry.supportFeature('typeOfValueForEnchantLevel')
       const useStoredEnchantments = registry.supportFeature('booksUseStoredEnchantments') && this.name === 'enchanted_book'
 
-      if (this.componentMap?.has('enchantments')) {
-        return this.componentMap.get('enchantments').data
+      // 1.20.5+: the enchantments component (a book's stored_enchantments), its levels by enchantment id
+      if (this.componentMap) {
+        const data = this.componentMap.get(useStoredEnchantments ? 'stored_enchantments' : 'enchantments')?.data
+        if (Array.isArray(data)) return data // already as this getter gives them (set so by hand)
+        return (data?.enchantments ?? []).map(({ id, level }) => ({ name: registry.enchantments[id]?.name ?? null, lvl: level }))
       }
 
       if (typeOfEnchantLevelValue === 'short' && enchantNbtKey === 'ench') {
@@ -309,11 +324,21 @@ function loader (registryOrVersion) {
     }
 
     set enchants (normalizedEnchArray) {
+      const useStoredEnchants = this.name === 'enchanted_book' && registry.supportFeature('booksUseStoredEnchantments')
+
+      // 1.20.5+: in the enchantments component (a book's stored_enchantments); its other fields are kept, and before
+      // 1.21.5 (where the tooltip became a component of its own) it says whether the tooltip shows them
+      if (this.componentMap) {
+        const key = useStoredEnchants ? 'stored_enchantments' : 'enchantments'
+        const levels = normalizedEnchArray.map(({ name, lvl }) => ({ id: registry.enchantmentsByName[name].id, level: lvl }))
+        const data = this.componentMap.get(key)?.data ?? (registry.version['<']('1.21.5') ? { showInTooltip: true } : {})
+        this._setComponent(key, levels.length ? { ...data, enchantments: levels } : null)
+        return
+      }
+
       const enchListName = registry.supportFeature('nbtNameForEnchant')
       const type = registry.supportFeature('typeOfValueForEnchantLevel')
       if (!type) throw new Error("Don't know the serialized type for enchant level")
-
-      const useStoredEnchants = this.name === 'enchanted_book' && registry.supportFeature('booksUseStoredEnchantments')
 
       const enchs = normalizedEnchArray.map(({ name, lvl }) => {
         const value =
