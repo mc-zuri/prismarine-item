@@ -357,3 +357,32 @@ describe('anvil without a second item', () => {
     })
   }
 })
+
+// 1.20.5+: the result is a copy of the first item, its components where they were, then the damage, the name, the repair
+// cost and the enchantments as AnvilMenu.createResult sets them (DataComponentPatch writes them in that order)
+describe('1.21.4 anvil components', () => {
+  const Item = require('prismarine-item')('1.21.4')
+  const registry = require('prismarine-registry')('1.21.4')
+  const id = name => registry.itemsByName[name].id
+  const enchantments = (type, name) => ({ type, data: { enchantments: [{ id: registry.enchantmentsByName[name].id, level: 1 }], showTooltip: true } })
+  const item = (name, components = []) => Item.fromNotch({ itemId: id(name), itemCount: 1, components, removeComponents: [] })
+
+  it('a sword and an enchanted book: the repair cost, then the enchantments', () => {
+    const result = Item.anvil(item('iron_sword'), item('enchanted_book', [enchantments('stored_enchantments', 'sharpness')]), false, undefined)
+    expect(result.item.components.map(component => component.type)).toStrictEqual(['repair_cost', 'enchantments'])
+    expect(result.item.enchants).toStrictEqual([{ name: 'sharpness', lvl: 1 }])
+  })
+
+  it('a renamed enchanted sword keeps its components where they were and the name comes after them', () => {
+    const sword = item('iron_sword', [enchantments('enchantments', 'smite'), { type: 'repair_cost', data: 1 }])
+    const result = Item.anvil(sword, null, false, 'Blade')
+    expect(result.item.components.map(component => component.type)).toStrictEqual(['enchantments', 'repair_cost', 'custom_name'])
+    expect(result.item.repairCost).toBe(3)
+  })
+
+  it('a component set again stays where it was', () => {
+    const sword = item('iron_sword', [{ type: 'repair_cost', data: 1 }, enchantments('enchantments', 'smite')])
+    sword.repairCost = 3
+    expect(sword.components.map(component => [component.type, component.data.enchantments ? 'smite' : component.data])).toStrictEqual([['repair_cost', 3], ['enchantments', 'smite']])
+  })
+})

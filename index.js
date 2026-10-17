@@ -205,14 +205,19 @@ function loader (registryOrVersion) {
     }
 
     // 1.20.5+: a component set (or removed, with null) both where the getters look and where toNotch writes from
+    // A component set where it was, a new one after the others (the item's patch keeps its components in the order
+    // they were first set: Reference2ObjectArrayMap, which DataComponentPatch writes in that order)
     _setComponent (type, data) {
-      this.components = (this.components ?? []).filter(component => component.type !== type)
+      this.components = this.components ?? []
+      const at = this.components.findIndex(component => component.type === type)
       if (data === null || data === undefined) {
+        if (at !== -1) this.components.splice(at, 1)
         this.componentMap.delete(type)
         return
       }
       const component = { type, data }
-      this.components.push(component)
+      if (at === -1) this.components.push(component)
+      else this.components[at] = component
       this.componentMap.set(type, component)
     }
 
@@ -425,7 +430,10 @@ function loader (registryOrVersion) {
 
     set durabilityUsed (value) {
       const where = registry.supportFeature('whereDurabilityIsSerialized')
-      if (where === 'Damage') {
+      if (this.componentMap) {
+        // 1.20.5+: the damage component, none when undamaged (the item's default: ItemStack.setDamageValue)
+        this._setComponent('damage', value || null)
+      } else if (where === 'Damage') {
         if (!this?.nbt) this.nbt = nbt.comp({})
         this.nbt.value.Damage = nbt.int(value)
       } else if (where === 'metadata') {
